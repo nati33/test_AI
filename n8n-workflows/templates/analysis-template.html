@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ניתוח הזדמנויות וסיכונים - {{fund_name}}</title>
+  <style>
+    :root {
+      --risk-color: #dc3545;
+      --risk-bg: #fff5f5;
+      --risk-border: #f5c6cb;
+      --opportunity-color: #28a745;
+      --opportunity-bg: #f0fff4;
+      --opportunity-border: #c3e6cb;
+      --high-severity: #dc3545;
+      --medium-severity: #ffc107;
+      --low-severity: #17a2b8;
+      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      background: #f5f5f5;
+      padding: 20px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* Header Styles */
+    header {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 40px;
+      border-radius: 15px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    header h1 {
+      font-size: 2.2em;
+      margin-bottom: 15px;
+      font-weight: 700;
+    }
+
+    .metadata {
+      display: flex;
+      gap: 25px;
+      flex-wrap: wrap;
+      font-size: 0.95em;
+      opacity: 0.95;
+    }
+
+    .metadata-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .metadata-item .label {
+      font-weight: 600;
+    }
+
+    /* Summary Cards */
+    .summary-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .summary-card {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+      transition: transform 0.2s ease;
+    }
+
+    .summary-card:hover {
+      transform: translateY(-3px);
+    }
+
+    .summary-card .number {
+      font-size: 2.5em;
+      font-weight: 700;
+      color: #667eea;
+    }
+
+    .summary-card.risks .number {
+      color: var(--risk-color);
+    }
+
+    .summary-card.opportunities .number {
+      color: var(--opportunity-color);
+    }
+
+    .summary-card .label {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    /* Analysis Grid */
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+
+    @media (max-width: 900px) {
+      .analysis-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .analysis-section {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .analysis-section h2 {
+      font-size: 1.5em;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #eee;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .risk-section h2 {
+      color: var(--risk-color);
+      border-color: var(--risk-color);
+    }
+
+    .opportunity-section h2 {
+      color: var(--opportunity-color);
+      border-color: var(--opportunity-color);
+    }
+
+    .section-icon {
+      font-size: 1.3em;
+    }
+
+    /* Analysis Items */
+    .items-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .analysis-item {
+      background: #fafafa;
+      border-radius: 10px;
+      padding: 20px;
+      border-right: 5px solid;
+      transition: box-shadow 0.2s ease;
+    }
+
+    .analysis-item:hover {
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .risk-item {
+      border-color: var(--risk-color);
+      background: var(--risk-bg);
+    }
+
+    .opportunity-item {
+      border-color: var(--opportunity-color);
+      background: var(--opportunity-bg);
+    }
+
+    .item-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .item-icon {
+      font-size: 1.3em;
+    }
+
+    .item-number {
+      font-weight: bold;
+      color: #666;
+      font-size: 0.9em;
+    }
+
+    .item-category {
+      background: rgba(0, 0, 0, 0.08);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      font-weight: 500;
+    }
+
+    .severity-badge {
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.8em;
+      font-weight: 600;
+      color: white;
+      margin-right: auto;
+    }
+
+    .severity-badge.critical {
+      background: #721c24;
+    }
+
+    .severity-badge.high {
+      background: var(--high-severity);
+    }
+
+    .severity-badge.medium {
+      background: var(--medium-severity);
+      color: #333;
+    }
+
+    .severity-badge.low {
+      background: var(--low-severity);
+    }
+
+    .item-content {
+      margin-top: 10px;
+    }
+
+    .item-content p {
+      margin-bottom: 10px;
+      line-height: 1.7;
+    }
+
+    .item-description {
+      font-size: 1.05em;
+    }
+
+    .item-recommendation {
+      background: white;
+      padding: 12px 15px;
+      border-radius: 8px;
+      font-size: 0.95em;
+      border-right: 3px solid #667eea;
+    }
+
+    .item-data {
+      font-size: 0.85em;
+      color: #666;
+      background: rgba(0, 0, 0, 0.03);
+      padding: 10px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .no-items {
+      color: #999;
+      font-style: italic;
+      text-align: center;
+      padding: 40px;
+      background: #fafafa;
+      border-radius: 10px;
+    }
+
+    /* Raw Data Section */
+    .raw-data-section {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      margin-bottom: 30px;
+    }
+
+    .raw-data-section h2 {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .data-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .data-tab {
+      padding: 10px 20px;
+      background: #f0f0f0;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95em;
+      transition: all 0.2s ease;
+    }
+
+    .data-tab:hover {
+      background: #e0e0e0;
+    }
+
+    .data-tab.active {
+      background: var(--primary-gradient);
+      color: white;
+    }
+
+    .json-viewer {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 25px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-family: 'Fira Code', 'Courier New', monospace;
+      font-size: 0.9em;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .json-key {
+      color: #9cdcfe;
+    }
+
+    .json-string {
+      color: #ce9178;
+    }
+
+    .json-number {
+      color: #b5cea8;
+    }
+
+    .json-boolean {
+      color: #569cd6;
+    }
+
+    /* LLM Prompt Section */
+    .llm-section {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 30px;
+    }
+
+    .llm-section h2 {
+      color: #495057;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .llm-prompt-box {
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      border: 2px solid #dee2e6;
+    }
+
+    .llm-prompt-box h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 1.1em;
+    }
+
+    .prompt-content {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.95em;
+      line-height: 1.8;
+      white-space: pre-wrap;
+    }
+
+    .focus-areas {
+      margin-top: 20px;
+    }
+
+    .focus-areas h4 {
+      margin-bottom: 10px;
+      color: #495057;
+    }
+
+    .focus-areas ul {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .focus-areas li {
+      background: #e9ecef;
+      padding: 10px 15px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .focus-areas li::before {
+      content: ">";
+      color: #667eea;
+      font-weight: bold;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+      font-size: 0.85em;
+    }
+
+    /* Print Styles */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .analysis-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .analysis-section {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+      }
+
+      .summary-card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>ניתוח הזדמנויות וסיכונים</h1>
+      <div class="metadata">
+        <div class="metadata-item">
+          <span class="label">קרן:</span>
+          <span>{{fund_name}}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="label">סוג:</span>
+          <span>{{fund_type}}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="label">מספר קרן:</span>
+          <span>{{fund_id}}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="label">תאריך ניתוח:</span>
+          <span>{{analysis_date}}</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Summary Cards -->
+    <section class="summary-section">
+      <div class="summary-card risks">
+        <div class="number">{{risks_count}}</div>
+        <div class="label">סיכונים מזוהים</div>
+      </div>
+      <div class="summary-card opportunities">
+        <div class="number">{{opportunities_count}}</div>
+        <div class="label">הזדמנויות מזוהות</div>
+      </div>
+      <div class="summary-card">
+        <div class="number">{{return_ytd}}%</div>
+        <div class="label">תשואה שנתית</div>
+      </div>
+      <div class="summary-card">
+        <div class="number">{{management_fee}}%</div>
+        <div class="label">דמי ניהול</div>
+      </div>
+    </section>
+
+    <!-- Analysis Grid -->
+    <div class="analysis-grid">
+      <!-- Risks Section -->
+      <section class="analysis-section risk-section">
+        <h2>
+          <span class="section-icon">&#9888;</span>
+          סיכונים
+        </h2>
+        <div class="items-container">
+          <!-- Risk items will be inserted here -->
+          <!-- Template for each risk item: -->
+          <!--
+          <div class="analysis-item risk-item" data-severity="{{severity}}">
+            <div class="item-header">
+              <span class="item-icon">&#9888;</span>
+              <span class="item-number">#{{index}}</span>
+              <span class="item-category">{{category}}</span>
+              <span class="severity-badge {{severity}}">{{severity}}</span>
+            </div>
+            <div class="item-content">
+              <p class="item-description">{{description}}</p>
+              <p class="item-recommendation"><strong>המלצה:</strong> {{recommendation}}</p>
+              <p class="item-data"><strong>נתונים תומכים:</strong> {{data_points}}</p>
+            </div>
+          </div>
+          -->
+        </div>
+      </section>
+
+      <!-- Opportunities Section -->
+      <section class="analysis-section opportunity-section">
+        <h2>
+          <span class="section-icon">&#10004;</span>
+          הזדמנויות
+        </h2>
+        <div class="items-container">
+          <!-- Opportunity items will be inserted here -->
+          <!-- Template for each opportunity item: -->
+          <!--
+          <div class="analysis-item opportunity-item" data-impact="{{impact}}">
+            <div class="item-header">
+              <span class="item-icon">&#10004;</span>
+              <span class="item-number">#{{index}}</span>
+              <span class="item-category">{{category}}</span>
+              <span class="severity-badge {{impact}}">{{impact}}</span>
+            </div>
+            <div class="item-content">
+              <p class="item-description">{{description}}</p>
+              <p class="item-recommendation"><strong>המלצה:</strong> {{recommendation}}</p>
+              <p class="item-data"><strong>נתונים תומכים:</strong> {{data_points}}</p>
+            </div>
+          </div>
+          -->
+        </div>
+      </section>
+    </div>
+
+    <!-- Raw Data Section -->
+    <section class="raw-data-section">
+      <h2>
+        <span class="section-icon">&#128202;</span>
+        נתונים גולמיים
+      </h2>
+      <div class="data-tabs">
+        <button class="data-tab active" data-target="fund-info">פרטי קרן</button>
+        <button class="data-tab" data-target="performance">ביצועים</button>
+        <button class="data-tab" data-target="fees">עמלות</button>
+        <button class="data-tab" data-target="assets">הקצאת נכסים</button>
+        <button class="data-tab" data-target="full-json">JSON מלא</button>
+      </div>
+      <div class="json-viewer" id="data-display">
+{{raw_data_json}}
+      </div>
+    </section>
+
+    <!-- LLM Prompt Section -->
+    <section class="llm-section">
+      <h2>
+        <span class="section-icon">&#129302;</span>
+        הנחיות לניתוח AI
+      </h2>
+      <div class="llm-prompt-box">
+        <h3>הקשר (Context)</h3>
+        <div class="prompt-content">
+הנתונים להלן מייצגים מידע פיננסי שחולץ מדוח קרן פנסיה/גמל ישראלית.
+המידע כולל נתוני ביצועים, עמלות, הקצאת נכסים, וזיהוי ראשוני של סיכונים והזדמנויות.
+
+קרן: {{fund_name}}
+סוג: {{fund_type}}
+תאריך דוח: {{report_date}}
+        </div>
+
+        <h3>משימה (Task)</h3>
+        <div class="prompt-content">
+נתח את הסיכונים וההזדמנויות המזוהים ותן תובנות מעמיקות:
+
+1. הערך את רמת הסיכון הכוללת של הקרן
+2. זהה הזדמנויות נוספות שאולי לא זוהו
+3. השווה לממוצעי השוק והמתחרים
+4. ספק המלצות מעשיות למשקיע
+        </div>
+
+        <div class="focus-areas">
+          <h4>תחומי התמקדות:</h4>
+          <ul>
+            <li>השוואה לממוצע השוק</li>
+            <li>מגמות לאורך זמן</li>
+            <li>יחס סיכון-תשואה</li>
+            <li>המלצות לפעולה</li>
+            <li>התאמה לפרופיל המשקיע</li>
+            <li>אירועים מאקרו-כלכליים</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>נוצר על ידי n8n PDF to JSON Workflow | גרסה 1.0.0</p>
+      <p>{{generation_timestamp}}</p>
+    </footer>
+  </div>
+
+  <script>
+    // Tab switching functionality
+    document.querySelectorAll('.data-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.data-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        // Update content based on selected tab
+        // This would be implemented to show different sections of the data
+      });
+    });
+  </script>
+</body>
+</html>

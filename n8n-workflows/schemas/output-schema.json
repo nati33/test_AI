@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/financial-fund-analysis.schema.json",
+  "title": "Financial Fund Analysis Output",
+  "description": "Schema for PDF-extracted financial fund data compatible with base44 and similar tools",
+  "type": "object",
+  "required": ["schema_version", "data_type", "_meta", "fields", "collections"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of the output schema",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "examples": ["1.0.0"]
+    },
+    "data_type": {
+      "type": "string",
+      "const": "financial_fund_analysis",
+      "description": "Type identifier for this data structure"
+    },
+    "_meta": {
+      "type": "object",
+      "description": "Metadata about the extraction process",
+      "required": ["created_at", "source", "format"],
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the data was extracted"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source system that created this data"
+        },
+        "format": {
+          "type": "string",
+          "description": "Output format specification"
+        },
+        "source_file": {
+          "type": "string",
+          "description": "Original PDF filename if available"
+        }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "description": "Flattened key-value fields for easy tool integration",
+      "properties": {
+        "fund_name": {
+          "type": ["string", "null"],
+          "description": "Name of the fund in Hebrew"
+        },
+        "fund_type": {
+          "type": ["string", "null"],
+          "description": "Type of fund (gemel, pensia, hishtalmut, bituach)",
+          "enum": ["gemel", "pensia", "hishtalmut", "bituach", null]
+        },
+        "fund_id": {
+          "type": ["string", "null"],
+          "description": "Unique fund identifier"
+        },
+        "fund_number": {
+          "type": ["string", "null"],
+          "description": "Fund registration number"
+        },
+        "report_date": {
+          "type": ["string", "null"],
+          "format": "date",
+          "description": "Date of the report"
+        },
+        "return_ytd": {
+          "type": ["number", "null"],
+          "description": "Year-to-date return percentage"
+        },
+        "return_1y": {
+          "type": ["number", "null"],
+          "description": "1-year return percentage"
+        },
+        "return_3y": {
+          "type": ["number", "null"],
+          "description": "3-year annualized return percentage"
+        },
+        "return_5y": {
+          "type": ["number", "null"],
+          "description": "5-year annualized return percentage"
+        },
+        "return_since_inception": {
+          "type": ["number", "null"],
+          "description": "Return since fund inception"
+        },
+        "management_fee": {
+          "type": ["number", "null"],
+          "description": "Annual management fee percentage"
+        },
+        "deposit_fee": {
+          "type": ["number", "null"],
+          "description": "Deposit fee percentage"
+        },
+        "total_assets": {
+          "type": ["number", "null"],
+          "description": "Total assets under management in NIS"
+        },
+        "risks_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of identified risk factors"
+        },
+        "opportunities_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of identified opportunities"
+        }
+      }
+    },
+    "collections": {
+      "type": "object",
+      "description": "Nested data collections",
+      "properties": {
+        "risks": {
+          "type": "array",
+          "description": "Identified risk factors",
+          "items": {
+            "$ref": "#/$defs/riskItem"
+          }
+        },
+        "opportunities": {
+          "type": "array",
+          "description": "Identified opportunities",
+          "items": {
+            "$ref": "#/$defs/opportunityItem"
+          }
+        },
+        "assets": {
+          "type": "object",
+          "description": "Asset allocation breakdown",
+          "properties": {
+            "stocks_domestic": {
+              "type": ["number", "null"],
+              "description": "Percentage in domestic stocks"
+            },
+            "stocks_foreign": {
+              "type": ["number", "null"],
+              "description": "Percentage in foreign stocks"
+            },
+            "bonds_government": {
+              "type": ["number", "null"],
+              "description": "Percentage in government bonds"
+            },
+            "bonds_corporate": {
+              "type": ["number", "null"],
+              "description": "Percentage in corporate bonds"
+            },
+            "cash": {
+              "type": ["number", "null"],
+              "description": "Percentage in cash and equivalents"
+            },
+            "real_estate": {
+              "type": ["number", "null"],
+              "description": "Percentage in real estate"
+            },
+            "alternative": {
+              "type": ["number", "null"],
+              "description": "Percentage in alternative investments"
+            }
+          }
+        }
+      }
+    },
+    "full_data": {
+      "type": "object",
+      "description": "Complete extracted data structure",
+      "properties": {
+        "fund_info": {
+          "type": "object",
+          "description": "Basic fund information"
+        },
+        "performance_data": {
+          "type": "object",
+          "description": "Performance metrics and returns"
+        },
+        "fees": {
+          "type": "object",
+          "description": "Fee structure details"
+        },
+        "assets": {
+          "type": "object",
+          "description": "Asset allocation details"
+        },
+        "raw_text_sections": {
+          "type": "array",
+          "description": "Raw text sections extracted from PDF",
+          "items": {
+            "type": "object",
+            "properties": {
+              "section_name": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "analysis_html": {
+      "type": "string",
+      "description": "HTML document for LLM analysis of opportunities and risks"
+    }
+  },
+  "$defs": {
+    "riskItem": {
+      "type": "object",
+      "required": ["description"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Description of the risk factor"
+        },
+        "category": {
+          "type": "string",
+          "description": "Risk category",
+          "enum": ["market", "credit", "liquidity", "operational", "regulatory", "currency", "interest_rate", "concentration", "other"]
+        },
+        "severity": {
+          "type": "string",
+          "description": "Risk severity level",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "impact": {
+          "type": "string",
+          "description": "Potential impact description"
+        },
+        "mitigation": {
+          "type": "string",
+          "description": "Risk mitigation measures"
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Recommended action"
+        },
+        "data_points": {
+          "type": "object",
+          "description": "Supporting data points"
+        }
+      }
+    },
+    "opportunityItem": {
+      "type": "object",
+      "required": ["description"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Description of the opportunity"
+        },
+        "category": {
+          "type": "string",
+          "description": "Opportunity category",
+          "enum": ["growth", "value", "income", "diversification", "cost_reduction", "market_timing", "other"]
+        },
+        "impact": {
+          "type": "string",
+          "description": "Potential positive impact",
+          "enum": ["low", "medium", "high"]
+        },
+        "timeframe": {
+          "type": "string",
+          "description": "Expected timeframe for realization",
+          "enum": ["short_term", "medium_term", "long_term"]
+        },
+        "confidence": {
+          "type": "string",
+          "description": "Confidence level in this opportunity",
+          "enum": ["low", "medium", "high"]
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Recommended action"
+        },
+        "data_points": {
+          "type": "object",
+          "description": "Supporting data points"
+        }
+      }
+    }
+  }
+}

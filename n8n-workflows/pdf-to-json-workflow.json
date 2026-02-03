@@ -1,0 +1,216 @@
+{
+  "name": "PDF to JSON - Financial Data Extractor",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-node",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.pdf_url }}",
+        "responseFormat": "file",
+        "options": {}
+      },
+      "id": "download-pdf",
+      "name": "Download PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300],
+      "notes": "Downloads PDF from provided URL or uses uploaded file"
+    },
+    {
+      "parameters": {
+        "operation": "extractFromPdf",
+        "binaryPropertyName": "data",
+        "options": {
+          "extractText": true,
+          "extractMetadata": true
+        }
+      },
+      "id": "extract-pdf-text",
+      "name": "Extract PDF Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "notes": "Extracts raw text content from PDF"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a financial document analyzer specializing in Israeli pension and provident fund data. Extract all relevant financial data from the document and return it as structured JSON.\n\nExtract the following categories:\n1. fund_info: Basic fund information (name, type, ID, dates)\n2. performance_data: Returns and performance metrics\n3. fees: Management fees and expenses\n4. assets: Asset allocation and holdings\n5. risks: Identified risk factors\n6. opportunities: Growth opportunities and positive indicators\n\nReturn valid JSON only."
+            },
+            {
+              "role": "user",
+              "content": "=Extract structured financial data from this document:\n\n{{ $json.text }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.1,
+          "maxTokens": 4096
+        }
+      },
+      "id": "llm-extract-data",
+      "name": "LLM - Extract Structured Data",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [900, 300],
+      "notes": "Uses LLM to extract structured data from raw text"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the LLM response and structure the data\nconst llmResponse = $input.first().json;\nlet extractedData;\n\ntry {\n  // Try to parse JSON from the LLM response\n  const content = llmResponse.message?.content || llmResponse.text || JSON.stringify(llmResponse);\n  const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n  extractedData = jsonMatch ? JSON.parse(jsonMatch[0]) : {};\n} catch (e) {\n  extractedData = { raw_text: llmResponse, parse_error: e.message };\n}\n\n// Build the structured output\nconst output = {\n  metadata: {\n    extraction_date: new Date().toISOString(),\n    source_type: \"pdf\",\n    workflow_version: \"1.0.0\"\n  },\n  raw_data: {\n    fund_info: extractedData.fund_info || {},\n    performance_data: extractedData.performance_data || {},\n    fees: extractedData.fees || {},\n    assets: extractedData.assets || {},\n    raw_text_sections: extractedData.raw_text_sections || []\n  },\n  analysis: {\n    risks: extractedData.risks || [],\n    opportunities: extractedData.opportunities || []\n  }\n};\n\nreturn [{ json: output }];"
+      },
+      "id": "structure-json",
+      "name": "Structure JSON Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "notes": "Structures the extracted data into the final JSON format"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate HTML for Opportunities and Risks Analysis\nconst data = $input.first().json;\n\nconst generateAnalysisHTML = (title, items, type) => {\n  const colorClass = type === 'risk' ? 'risk-item' : 'opportunity-item';\n  const icon = type === 'risk' ? '⚠️' : '✅';\n  \n  let itemsHTML = '';\n  if (Array.isArray(items) && items.length > 0) {\n    items.forEach((item, index) => {\n      const severity = item.severity || item.impact || 'medium';\n      const description = item.description || item.text || (typeof item === 'string' ? item : JSON.stringify(item));\n      const category = item.category || 'general';\n      \n      itemsHTML += `\n        <div class=\"analysis-item ${colorClass}\" data-severity=\"${severity}\">\n          <div class=\"item-header\">\n            <span class=\"item-icon\">${icon}</span>\n            <span class=\"item-number\">#${index + 1}</span>\n            <span class=\"item-category\">${category}</span>\n            <span class=\"severity-badge ${severity}\">${severity}</span>\n          </div>\n          <div class=\"item-content\">\n            <p class=\"item-description\">${description}</p>\n            ${item.recommendation ? `<p class=\"item-recommendation\"><strong>המלצה:</strong> ${item.recommendation}</p>` : ''}\n            ${item.data_points ? `<p class=\"item-data\"><strong>נתונים תומכים:</strong> ${JSON.stringify(item.data_points)}</p>` : ''}\n          </div>\n        </div>\n      `;\n    });\n  } else {\n    itemsHTML = '<p class=\"no-items\">לא נמצאו פריטים בקטגוריה זו</p>';\n  }\n  \n  return `\n    <section class=\"analysis-section ${type}-section\">\n      <h2>${title}</h2>\n      <div class=\"items-container\">\n        ${itemsHTML}\n      </div>\n    </section>\n  `;\n};\n\nconst html = `\n<!DOCTYPE html>\n<html lang=\"he\" dir=\"rtl\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>ניתוח הזדמנויות וסיכונים - ${data.raw_data?.fund_info?.name || 'קרן'}</title>\n  <style>\n    :root {\n      --risk-color: #dc3545;\n      --risk-bg: #fff5f5;\n      --opportunity-color: #28a745;\n      --opportunity-bg: #f0fff4;\n      --high-severity: #dc3545;\n      --medium-severity: #ffc107;\n      --low-severity: #17a2b8;\n    }\n    \n    * {\n      box-sizing: border-box;\n      margin: 0;\n      padding: 0;\n    }\n    \n    body {\n      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\n      line-height: 1.6;\n      background: #f5f5f5;\n      padding: 20px;\n    }\n    \n    .container {\n      max-width: 1200px;\n      margin: 0 auto;\n    }\n    \n    header {\n      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n      color: white;\n      padding: 30px;\n      border-radius: 10px;\n      margin-bottom: 30px;\n    }\n    \n    header h1 {\n      font-size: 2em;\n      margin-bottom: 10px;\n    }\n    \n    .metadata {\n      display: flex;\n      gap: 20px;\n      flex-wrap: wrap;\n      font-size: 0.9em;\n      opacity: 0.9;\n    }\n    \n    .analysis-grid {\n      display: grid;\n      grid-template-columns: 1fr 1fr;\n      gap: 30px;\n    }\n    \n    @media (max-width: 768px) {\n      .analysis-grid {\n        grid-template-columns: 1fr;\n      }\n    }\n    \n    .analysis-section {\n      background: white;\n      border-radius: 10px;\n      padding: 25px;\n      box-shadow: 0 2px 10px rgba(0,0,0,0.1);\n    }\n    \n    .analysis-section h2 {\n      margin-bottom: 20px;\n      padding-bottom: 10px;\n      border-bottom: 2px solid #eee;\n    }\n    \n    .risk-section h2 {\n      color: var(--risk-color);\n      border-color: var(--risk-color);\n    }\n    \n    .opportunity-section h2 {\n      color: var(--opportunity-color);\n      border-color: var(--opportunity-color);\n    }\n    \n    .analysis-item {\n      background: #fafafa;\n      border-radius: 8px;\n      padding: 15px;\n      margin-bottom: 15px;\n      border-right: 4px solid;\n    }\n    \n    .risk-item {\n      border-color: var(--risk-color);\n      background: var(--risk-bg);\n    }\n    \n    .opportunity-item {\n      border-color: var(--opportunity-color);\n      background: var(--opportunity-bg);\n    }\n    \n    .item-header {\n      display: flex;\n      align-items: center;\n      gap: 10px;\n      margin-bottom: 10px;\n    }\n    \n    .item-icon {\n      font-size: 1.2em;\n    }\n    \n    .item-number {\n      font-weight: bold;\n      color: #666;\n    }\n    \n    .item-category {\n      background: #e9ecef;\n      padding: 2px 8px;\n      border-radius: 4px;\n      font-size: 0.85em;\n    }\n    \n    .severity-badge {\n      padding: 2px 10px;\n      border-radius: 12px;\n      font-size: 0.8em;\n      font-weight: bold;\n      color: white;\n      margin-right: auto;\n    }\n    \n    .severity-badge.high {\n      background: var(--high-severity);\n    }\n    \n    .severity-badge.medium {\n      background: var(--medium-severity);\n      color: #333;\n    }\n    \n    .severity-badge.low {\n      background: var(--low-severity);\n    }\n    \n    .item-content p {\n      margin-bottom: 8px;\n    }\n    \n    .item-recommendation {\n      background: white;\n      padding: 10px;\n      border-radius: 5px;\n      font-size: 0.9em;\n    }\n    \n    .item-data {\n      font-size: 0.85em;\n      color: #666;\n    }\n    \n    .no-items {\n      color: #999;\n      font-style: italic;\n      text-align: center;\n      padding: 30px;\n    }\n    \n    .raw-data-section {\n      margin-top: 30px;\n      background: white;\n      border-radius: 10px;\n      padding: 25px;\n      box-shadow: 0 2px 10px rgba(0,0,0,0.1);\n    }\n    \n    .raw-data-section h2 {\n      margin-bottom: 20px;\n    }\n    \n    .json-viewer {\n      background: #2d2d2d;\n      color: #f8f8f2;\n      padding: 20px;\n      border-radius: 8px;\n      overflow-x: auto;\n      font-family: 'Courier New', monospace;\n      font-size: 0.9em;\n      white-space: pre-wrap;\n      word-break: break-all;\n    }\n    \n    .llm-prompt-section {\n      margin-top: 30px;\n      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);\n      border-radius: 10px;\n      padding: 25px;\n    }\n    \n    .llm-prompt-section h2 {\n      color: #495057;\n      margin-bottom: 15px;\n    }\n    \n    .llm-prompt {\n      background: white;\n      padding: 20px;\n      border-radius: 8px;\n      border: 1px solid #dee2e6;\n    }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <header>\n      <h1>ניתוח הזדמנויות וסיכונים</h1>\n      <div class=\"metadata\">\n        <span>קרן: ${data.raw_data?.fund_info?.name || 'לא צוין'}</span>\n        <span>סוג: ${data.raw_data?.fund_info?.type || 'לא צוין'}</span>\n        <span>תאריך ניתוח: ${data.metadata?.extraction_date || new Date().toISOString()}</span>\n      </div>\n    </header>\n    \n    <div class=\"analysis-grid\">\n      ${generateAnalysisHTML('סיכונים', data.analysis?.risks, 'risk')}\n      ${generateAnalysisHTML('הזדמנויות', data.analysis?.opportunities, 'opportunity')}\n    </div>\n    \n    <div class=\"raw-data-section\">\n      <h2>נתונים גולמיים</h2>\n      <div class=\"json-viewer\">${JSON.stringify(data.raw_data, null, 2)}</div>\n    </div>\n    \n    <div class=\"llm-prompt-section\">\n      <h2>הנחיות לניתוח AI</h2>\n      <div class=\"llm-prompt\">\n        <p><strong>Context:</strong> הנתונים להלן מייצגים מידע פיננסי שחולץ מדוח קרן פנסיה/גמל ישראלית.</p>\n        <p><strong>Task:</strong> נתח את הסיכונים וההזדמנויות המזוהים ותן תובנות מעמיקות.</p>\n        <p><strong>Focus Areas:</strong></p>\n        <ul>\n          <li>השוואה לממוצע השוק</li>\n          <li>מגמות לאורך זמן</li>\n          <li>יחס סיכון-תשואה</li>\n          <li>המלצות לפעולה</li>\n        </ul>\n      </div>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nreturn [{ json: { ...data, analysis_html: html } }];"
+      },
+      "id": "generate-html",
+      "name": "Generate Analysis HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "notes": "Generates HTML document for LLM analysis of opportunities and risks"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Prepare final output for base44 and other tools\nconst inputData = $input.first().json;\n\n// Base44-compatible JSON structure\nconst base44Output = {\n  schema_version: \"1.0.0\",\n  data_type: \"financial_fund_analysis\",\n  \n  // Metadata for tool integration\n  _meta: {\n    created_at: inputData.metadata?.extraction_date || new Date().toISOString(),\n    source: \"n8n-pdf-extractor\",\n    format: \"base44-compatible\"\n  },\n  \n  // Main data fields - flattened for easy access\n  fields: {\n    fund_name: inputData.raw_data?.fund_info?.name || null,\n    fund_type: inputData.raw_data?.fund_info?.type || null,\n    fund_id: inputData.raw_data?.fund_info?.id || null,\n    \n    // Performance metrics\n    return_ytd: inputData.raw_data?.performance_data?.ytd_return || null,\n    return_1y: inputData.raw_data?.performance_data?.one_year_return || null,\n    return_3y: inputData.raw_data?.performance_data?.three_year_return || null,\n    return_5y: inputData.raw_data?.performance_data?.five_year_return || null,\n    \n    // Fees\n    management_fee: inputData.raw_data?.fees?.management_fee || null,\n    deposit_fee: inputData.raw_data?.fees?.deposit_fee || null,\n    \n    // Counts\n    risks_count: inputData.analysis?.risks?.length || 0,\n    opportunities_count: inputData.analysis?.opportunities?.length || 0\n  },\n  \n  // Nested structures\n  collections: {\n    risks: inputData.analysis?.risks || [],\n    opportunities: inputData.analysis?.opportunities || [],\n    assets: inputData.raw_data?.assets || {}\n  },\n  \n  // Full structured data\n  full_data: inputData.raw_data,\n  \n  // Analysis HTML for LLM\n  analysis_html: inputData.analysis_html\n};\n\nreturn [{ json: base44Output }];"
+      },
+      "id": "prepare-base44",
+      "name": "Prepare Base44 Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300],
+      "notes": "Formats output for base44 tool compatibility"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "output-node",
+      "name": "Output",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Download PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download PDF": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "LLM - Extract Structured Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Extract Structured Data": {
+      "main": [
+        [
+          {
+            "node": "Structure JSON Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure JSON Output": {
+      "main": [
+        [
+          {
+            "node": "Generate Analysis HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Analysis HTML": {
+      "main": [
+        [
+          {
+            "node": "Prepare Base44 Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Base44 Output": {
+      "main": [
+        [
+          {
+            "node": "Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "pdf",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "financial-data",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "llm",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-02-03T00:00:00.000Z",
+  "versionId": "1.0.0"
+}
