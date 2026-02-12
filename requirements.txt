@@ -2,3 +2,7 @@ requests
 beautifulsoup4
 lxml
 pandas
+
+# Financial planner chat backends (install as needed)
+# openai
+# anthropic
