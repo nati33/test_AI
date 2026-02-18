@@ -2,3 +2,9 @@ requests
 beautifulsoup4
 lxml
 pandas
+# LinkedIn scraper dependencies
+playwright>=1.40.0
+nest-asyncio>=1.5.8
+matplotlib>=3.7.0
+python-dotenv>=1.0.0
+ipywidgets>=8.0.0
