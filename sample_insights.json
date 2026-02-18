@@ -1,0 +1,93 @@
+{
+  "title": "Quarterly Financial Analysis",
+  "subtitle": "Q4 2024 — Revenue & Operations Summary",
+  "date": "18 February 2026",
+  "source_filename": "Q4_2024_Financial_Report.pdf",
+  "total_pages": 48,
+  "executive_summary": "This report presents a comprehensive analysis of Q4 2024 financial performance. Revenue grew by 18.3% year-over-year, driven primarily by strong growth in the SaaS segment (+34%) and international expansion. Operating margins improved from 12.1% to 15.6%, reflecting successful cost optimization initiatives. Customer acquisition costs declined 8% while LTV increased 22%, signaling a favorable shift in unit economics. Key risks include FX headwinds in European markets and supply chain delays affecting hardware revenue.",
+  "kpis": [
+    {"label": "Total Revenue",       "value": "₪4,820,000", "change": "+18.3%",  "trend": "up"},
+    {"label": "Gross Margin",        "value": "63.2%",       "change": "+4.1pp",  "trend": "up"},
+    {"label": "New Customers",       "value": "1,247",       "change": "+31%",    "trend": "up"},
+    {"label": "Churn Rate",          "value": "2.1%",        "change": "-0.4pp",  "trend": "up"},
+    {"label": "ARR",                 "value": "₪12,300,000", "change": "+41%",    "trend": "up"},
+    {"label": "CAC",                 "value": "₪3,400",      "change": "-8%",     "trend": "up"},
+    {"label": "LTV",                 "value": "₪62,000",     "change": "+22%",    "trend": "up"},
+    {"label": "Operating Cash Flow", "value": "₪1,100,000",  "change": "+55%",    "trend": "up"}
+  ],
+  "insights": [
+    {
+      "category": "Revenue Growth",
+      "text": "SaaS segment reached ₪2.9M in Q4, representing 60% of total revenue — up from 45% in Q4 2023. This structural shift is improving margin predictability and reducing revenue volatility.",
+      "importance": "high"
+    },
+    {
+      "category": "Customer Success",
+      "text": "Net Revenue Retention (NRR) reached 127%, meaning existing customers expanded their spending by 27% on average. This is a leading indicator of strong product-market fit.",
+      "importance": "high"
+    },
+    {
+      "category": "Geographic Expansion",
+      "text": "US market launched in September 2024 with 87 enterprise customers acquired in Q4. Average deal size is 2.3x higher than the domestic market, though sales cycles are longer at ~90 days.",
+      "importance": "high"
+    },
+    {
+      "category": "Cost Efficiency",
+      "text": "R&D headcount increased by 15 engineers while R&D as % of revenue declined from 28% to 24%, demonstrating improved engineering productivity and platform leverage.",
+      "importance": "medium"
+    },
+    {
+      "category": "Risk Factor",
+      "text": "EUR/ILS exchange rate fluctuations created a ₪180,000 headwind in European revenue. A natural hedging strategy is being evaluated for H1 2025.",
+      "importance": "medium"
+    },
+    {
+      "category": "Pipeline",
+      "text": "Q1 2025 sales pipeline stands at ₪8.2M (3.2x coverage ratio). Enterprise pipeline grew 64% quarter-over-quarter, with 12 deals in final contract stages.",
+      "importance": "medium"
+    },
+    {
+      "category": "Operations",
+      "text": "Infrastructure costs per customer declined 19% following migration to a multi-tenant architecture completed in October 2024. Full-year savings estimated at ₪420,000.",
+      "importance": "low"
+    },
+    {
+      "category": "Compliance",
+      "text": "SOC 2 Type II certification obtained in December 2024, opening access to regulated enterprise verticals including financial services and healthcare.",
+      "importance": "low"
+    }
+  ],
+  "sections": [
+    {
+      "title": "Revenue Breakdown by Segment",
+      "content": "Revenue diversification continued in Q4 2024 with SaaS subscriptions becoming the dominant revenue source. Hardware and professional services remained stable contributors while one-time license fees declined as planned.",
+      "bullet_points": [
+        "SaaS Subscriptions: ₪2,892,000 (+34% YoY) — 60% of total revenue",
+        "Professional Services: ₪963,000 (+7% YoY) — 20% of total revenue",
+        "Hardware & Licenses: ₪723,000 (-5% YoY) — 15% of total revenue",
+        "Other: ₪242,000 (+12% YoY) — 5% of total revenue"
+      ]
+    },
+    {
+      "title": "Strategic Priorities for Q1 2025",
+      "content": "Based on Q4 performance and market conditions, the following strategic initiatives have been prioritized for the upcoming quarter.",
+      "bullet_points": [
+        "Close 3 enterprise deals currently in legal review with combined ACV of ₪1.8M",
+        "Launch AI-powered analytics module to drive expansion revenue in existing accounts",
+        "Hire 8 additional customer success managers to support NRR targets",
+        "Complete SOC 2 marketing campaign targeting financial services verticals",
+        "Evaluate Series B funding options with target close in Q2 2025"
+      ]
+    }
+  ],
+  "table": {
+    "headers": ["Segment", "Q4 2024", "Q4 2023", "Growth", "% of Total"],
+    "rows": [
+      ["SaaS Subscriptions", "₪2,892,000", "₪2,158,000", "+34.0%", "60%"],
+      ["Professional Services", "₪963,000",  "₪900,000",  "+7.0%",  "20%"],
+      ["Hardware & Licenses",   "₪723,000",  "₪761,000",  "-5.0%",  "15%"],
+      ["Other",                 "₪242,000",  "₪216,000",  "+12.0%",  "5%"],
+      ["TOTAL",                 "₪4,820,000","₪4,035,000", "+18.3%", "100%"]
+    ]
+  }
+}
