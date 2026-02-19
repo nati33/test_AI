@@ -44,30 +44,48 @@ gov_periods AS (
 ),
 
 -- ----------------------------------------------------------------
--- STEP 2: For each gov period, find the main Pango account
---         (highest total transactions) and distinct phone count.
---         A Pango row belongs to a period when its first_use
---         falls within [period_start, period_end).
+-- STEP 2a: Pre-aggregate pango BEFORE the range join.
+--          Collapse to one row per (car, account, phone) and cast
+--          first_use to DATE once here — avoids repeating CAST on
+--          millions of rows inside the join condition.
+--          This drastically reduces the size of the range join.
 -- ----------------------------------------------------------------
-pango_period_agg AS (
+pango_agg AS (
+    SELECT
+        car_no,
+        account_gk,
+        user_phone_number,
+        CAST(MIN(first_use) AS DATE)                               AS first_use_date,
+        SUM(transaction)                                           AS total_transactions
+    FROM natis.cars_movements_step_1
+    GROUP BY car_no, account_gk, user_phone_number
+),
+
+-- ----------------------------------------------------------------
+-- STEP 2b: Range-join the pre-aggregated pango to gov periods.
+--          Because pango_agg is already collapsed, this join is
+--          far cheaper than joining the raw table.
+--          Pick the main account (most transactions) per period.
+-- ----------------------------------------------------------------
+pango_per_period AS (
     SELECT
         g.car_no,
         g.period_start,
         p.account_gk,
-        SUM(p.transaction)                                         AS total_transactions,
+        SUM(p.total_transactions)                                  AS total_transactions,
         COUNT(DISTINCT p.user_phone_number)                        AS unique_phones,
 
         ROW_NUMBER() OVER (
             PARTITION BY g.car_no, g.period_start
-            ORDER BY SUM(p.transaction) DESC
+            ORDER BY SUM(p.total_transactions) DESC
         )                                                          AS rn
 
     FROM gov_periods                          g
-    LEFT JOIN natis.cars_movements_step_1     p
-        ON  g.car_no                    = p.car_no
-        AND CAST(p.first_use AS DATE)  >= g.period_start
-        AND (CAST(p.first_use AS DATE)  < g.period_end
-             OR g.period_end            IS NULL)
+    LEFT JOIN pango_agg                       p
+        ON  g.car_no           = p.car_no
+        AND p.first_use_date  >= g.period_start
+        AND (p.first_use_date  < g.period_end
+             OR g.period_end   IS NULL)
 
     GROUP BY g.car_no, g.period_start, p.account_gk
 ),
@@ -78,20 +96,17 @@ main_account_per_period AS (
         period_start,
         account_gk                                                 AS main_account,
         unique_phones
-    FROM pango_period_agg
+    FROM pango_per_period
     WHERE rn = 1
 ),
 
 -- ----------------------------------------------------------------
 -- STEP 3: Build transition rows with LAG.
---         Each row = one ownership period, enriched with the
---         previous period's details via LAG().
 -- ----------------------------------------------------------------
 gov_transitions AS (
     SELECT
         car_no,
 
-        -- FROM period (previous ownership)
         LAG(ownership_type) OVER (
             PARTITION BY car_no ORDER BY period_start
         )                                                          AS from_ownership_type,
@@ -99,10 +114,7 @@ gov_transitions AS (
             PARTITION BY car_no ORDER BY period_start
         )                                                          AS from_date,
 
-        -- Date the car changed hands
         period_start                                               AS change_date,
-
-        -- TO period (this ownership)
         ownership_type                                             AS to_ownership_type,
         period_end                                                 AS to_date,      -- NULL = still active
 
@@ -134,18 +146,14 @@ SELECT
 
 FROM gov_transitions t
 
--- Main account during the FROM period
 LEFT JOIN main_account_per_period fa
     ON  t.car_no    = fa.car_no
     AND t.from_date = fa.period_start
 
--- Main account during the TO period
 LEFT JOIN main_account_per_period ta
     ON  t.car_no      = ta.car_no
     AND t.change_date = ta.period_start
 
--- Exclude the very first ownership row UNLESS it is also the
--- current one (car has had only one owner ever → keep it)
 WHERE t.seq_asc > 1
    OR t.seq_desc = 1
 
