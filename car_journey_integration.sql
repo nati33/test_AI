@@ -1,7 +1,9 @@
 -- ============================================================
 -- Gov IL Ownership Transitions — one row per ownership change
--- Source: gov_il_cars
---   columns: _id, mispar_rechev, baalut_dt (YYYYMM), baalut
+-- Sources:
+--   gov : externals.gov_history_ownership_car_changes
+--         columns: _id, mispar_rechev, baalut_dt (YYYYMM), baalut
+--   cars: natis.cars_movements_step_1  (available for future joins)
 --
 -- Goal: For each car, produce one row per ownership period.
 --       Each row shows:
@@ -39,7 +41,7 @@ gov_transitions AS (
         -- Date THIS ownership started
         TO_DATE(baalut_dt || '01', 'YYYYMMDD')                    AS to_date
 
-    FROM gov_il_cars               -- <<< replace with your actual table/schema
+    FROM externals.gov_history_ownership_car_changes
 )
 
 -- ================================================================
