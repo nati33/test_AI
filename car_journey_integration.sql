@@ -11,8 +11,9 @@
 --       • from_account / to_account = Pango account with most
 --         transactions during each ownership period.
 --       • number_of_unique_phones = distinct phones in the TO period.
---       • First ownership row is excluded (no "from" exists).
---       • Current/active ownership IS included with to_date = NULL.
+--       • All gov rows appear (1 gov row = 1 output row).
+--       • First row: from_account / from_ownership_type / from_date = NULL.
+--       • Current/active ownership: to_date = NULL.
 -- ============================================================
 
 WITH
@@ -31,14 +32,7 @@ gov_periods AS (
         LEAD(TO_DATE(baalut_dt || '01', 'YYYYMMDD')) OVER (
             PARTITION BY mispar_rechev
             ORDER BY baalut_dt
-        )                                                          AS period_end,   -- NULL = active
-
-        ROW_NUMBER() OVER (
-            PARTITION BY mispar_rechev ORDER BY baalut_dt ASC
-        )                                                          AS seq_asc,      -- 1 = first ever
-        ROW_NUMBER() OVER (
-            PARTITION BY mispar_rechev ORDER BY baalut_dt DESC
-        )                                                          AS seq_desc      -- 1 = current
+        )                                                          AS period_end    -- NULL = active
 
     FROM externals.gov_history_ownership_car_changes
 ),
@@ -116,10 +110,7 @@ gov_transitions AS (
 
         period_start                                               AS change_date,
         ownership_type                                             AS to_ownership_type,
-        period_end                                                 AS to_date,      -- NULL = still active
-
-        seq_asc,
-        seq_desc
+        period_end                                                 AS to_date       -- NULL = still active
 
     FROM gov_periods
 )
@@ -153,9 +144,6 @@ LEFT JOIN main_account_per_period fa
 LEFT JOIN main_account_per_period ta
     ON  t.car_no      = ta.car_no
     AND t.change_date = ta.period_start
-
-WHERE t.seq_asc > 1
-   OR t.seq_desc = 1
 
 ORDER BY
     t.car_no,
