@@ -1,16 +1,16 @@
 begin;
 
-truncate table statistic.active_pl;
-insert into statistic.active_pl
+drop table if exists natis.active_pl;
+create table natis.active_pl as
 SELECT id as shopid FROM mrr.mcp_Shop
         WHERE UrlWs IS NOT NULL AND UrlWs <> ''
         AND Shop_User_Name IS NOT NULL AND Shop_User_Name <> ''
         AND Shop_Password IS NOT NULL AND Shop_Password <> ''
-        ;
+;
 
 
-truncate table statistic.enter_shopid_interval_mapping;
-insert into statistic.enter_shopid_interval_mapping
+drop table if exists natis.enter_shopid_interval_mapping;
+create table natis.enter_shopid_interval_mapping as
 select shopid, business_day,
 avg(freq)                        as avg_daily_enter,
 stddev_pop(freq)                 as std_daily_enter,
@@ -33,8 +33,8 @@ group by 1, 2
 
 
 ----------------------------------------------------
-truncate table statistic.enter_shopid_segments;
-insert into statistic.enter_shopid_segments
+drop table if exists natis.enter_shopid_segments;
+create table natis.enter_shopid_segments as
 select
     a.shopid,
     case when avg_daily_enter is null        then 'no_enter_data'
@@ -46,9 +46,9 @@ select
          when total_observation < 30         then 'New'
          else                                     'Regular'  end as segment_tenure,
     case when std_daily_enter / avg_daily_enter >= 1.3 then 1 else 0 end as unstable_ind
-from statistic.active_pl a
+from natis.active_pl a
 left join (
-    select * from statistic.enter_shopid_interval_mapping where business_day = 1
+    select * from natis.enter_shopid_interval_mapping where business_day = 1
 ) b on a.shopid = b.shopid
 ;
 
@@ -56,8 +56,8 @@ left join (
 -------------------------------------------------------------------
 -- STEP 1: raw interval counts (10 minutes)
 -------------------------------------------------------------------
-truncate table statistic.enter_step_1_anomaly_10_minutes;
-insert into statistic.enter_step_1_anomaly_10_minutes
+drop table if exists natis.enter_step_1_anomaly_10_minutes;
+create table natis.enter_step_1_anomaly_10_minutes as
 WITH shop_min_max_dates AS (
     SELECT shopid,
            MIN(DATE(timestamp)) AS min_date,
@@ -77,7 +77,7 @@ enter_vector AS (
            dd.date AS date_key, dd.business_day,
            dtp.latitude, dtp.longitude
     FROM events.canary_parkinglot_enter k
-    JOIN statistic.enter_shopid_segments b ON k.shopid = b.shopid
+    JOIN natis.enter_shopid_segments b ON k.shopid = b.shopid
     JOIN (
         SELECT * FROM mrr.mcp_Shop
         WHERE UrlWs IS NOT NULL AND UrlWs <> ''
@@ -128,8 +128,8 @@ ORDER BY si.shopid, si.date_key, si.start_time_interval
 ----------------------------------------------
 -- STEP 1: raw interval counts (30 minutes)
 ----------------------------------------------
-truncate table statistic.enter_step_1_anomaly_enter_30_minutes;
-insert into statistic.enter_step_1_anomaly_enter_30_minutes
+drop table if exists natis.enter_step_1_anomaly_enter_30_minutes;
+create table natis.enter_step_1_anomaly_enter_30_minutes as
 WITH shop_min_max_dates AS (
     SELECT shopid,
            MIN(DATE(timestamp)) AS min_date,
@@ -149,7 +149,7 @@ enter_vector AS (
            dd.date AS date_key, dd.business_day,
            dtp.latitude, dtp.longitude
     FROM events.canary_parkinglot_enter k
-    JOIN statistic.enter_shopid_segments b ON k.shopid = b.shopid
+    JOIN natis.enter_shopid_segments b ON k.shopid = b.shopid
     JOIN (
         SELECT * FROM mrr.mcp_Shop
         WHERE UrlWs IS NOT NULL AND UrlWs <> ''
@@ -200,8 +200,8 @@ ORDER BY si.shopid, si.date_key, si.start_time_interval
 ----------------------------------------------
 -- STEP 1: raw interval counts (60 minutes)
 ----------------------------------------------
-truncate table statistic.enter_step_1_anomaly_enter_60_minutes;
-insert into statistic.enter_step_1_anomaly_enter_60_minutes
+drop table if exists natis.enter_step_1_anomaly_enter_60_minutes;
+create table natis.enter_step_1_anomaly_enter_60_minutes as
 WITH shop_min_max_dates AS (
     SELECT shopid,
            MIN(DATE(timestamp)) AS min_date,
@@ -221,7 +221,7 @@ enter_vector AS (
            dd.date AS date_key, dd.business_day,
            dtp.latitude, dtp.longitude
     FROM events.canary_parkinglot_enter k
-    JOIN statistic.enter_shopid_segments b ON k.shopid = b.shopid
+    JOIN natis.enter_shopid_segments b ON k.shopid = b.shopid
     JOIN (
         SELECT * FROM mrr.mcp_Shop
         WHERE UrlWs IS NOT NULL AND UrlWs <> ''
@@ -272,8 +272,8 @@ ORDER BY si.shopid, si.date_key, si.start_time_interval
 ----------------------------------------------
 -- STEP 1: raw interval counts (24 hours)
 ----------------------------------------------
-truncate table statistic.enter_step_1_anomaly_enter_24_hours;
-insert into statistic.enter_step_1_anomaly_enter_24_hours
+drop table if exists natis.enter_step_1_anomaly_enter_24_hours;
+create table natis.enter_step_1_anomaly_enter_24_hours as
 WITH shop_min_max_dates AS (
     SELECT shopid,
            MIN(DATE(timestamp)) AS min_date,
@@ -293,7 +293,7 @@ enter_vector AS (
            dd.date AS date_key, dd.business_day,
            dtp.latitude, dtp.longitude
     FROM events.canary_parkinglot_enter k
-    JOIN statistic.enter_shopid_segments b ON k.shopid = b.shopid
+    JOIN natis.enter_shopid_segments b ON k.shopid = b.shopid
     JOIN (
         SELECT * FROM mrr.mcp_Shop
         WHERE UrlWs IS NOT NULL AND UrlWs <> ''
@@ -347,7 +347,7 @@ ORDER BY si.shopid, si.date_key, si.start_time_interval
 --------------------------------------------------------------------------------------
 -- STEP 2: aggregate statistics per (shopid, interval slot, business_day)
 --
--- New columns vs original:
+-- Columns added for NB p-value and CUSUM:
 --   enter_var        – population variance  → needed by NB and CUSUM
 --   enter_sum        – total count           → MLE fitting of NB
 --   enter_max        – maximum per slot      → range / outlier context
@@ -364,8 +364,8 @@ ORDER BY si.shopid, si.date_key, si.start_time_interval
 --   is_overdispersed – flag: σ² > μ
 --------------------------------------------------------------------------------------
 
-truncate table statistic.enter_step_2_anomaly_statistic_10_minutes;
-insert into statistic.enter_step_2_anomaly_statistic_10_minutes
+drop table if exists natis.enter_step_2_anomaly_statistic_10_minutes;
+create table natis.enter_step_2_anomaly_statistic_10_minutes as
 SELECT
     shopid, shop_name, vendor_name,
     start_time_interval,
@@ -375,31 +375,31 @@ SELECT
     'count_entrance'  as measure_name,
     longitude, latitude,
     -- location
-    SUM(enter_count) / COUNT(*)::FLOAT                       AS enter_mean,
-    STDDEV_POP(enter_count)                                  AS enter_std,
-    -- NEW: variance and distribution shape
-    VAR_POP(enter_count)                                     AS enter_var,
-    SUM(enter_count)                                         AS enter_sum,
-    MAX(enter_count)                                         AS enter_max,
-    MIN(enter_count)                                         AS enter_min,
+    SUM(enter_count) / COUNT(*)::FLOAT                        AS enter_mean,
+    STDDEV_POP(enter_count)                                   AS enter_std,
+    -- variance and distribution shape (NB + CUSUM)
+    VAR_POP(enter_count)                                      AS enter_var,
+    SUM(enter_count)                                          AS enter_sum,
+    MAX(enter_count)                                          AS enter_max,
+    MIN(enter_count)                                          AS enter_min,
     PERCENTILE_CONT(0.5)  WITHIN GROUP (ORDER BY enter_count) AS enter_median,
     PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY enter_count) AS enter_p25,
     PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY enter_count) AS enter_p75,
     -- zero inflation
-    SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END)        AS zero_interval,
-    COUNT(*)                                                  AS total_observation,
+    SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END)         AS zero_interval,
+    COUNT(*)                                                   AS total_observation,
     SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END) / COUNT(*)::FLOAT AS zero_prop,
     -- lag statistics (sequential CUSUM baseline)
     LAG(SUM(enter_count) / COUNT(*)::FLOAT) OVER (
         PARTITION BY shopid, business_day ORDER BY start_time_interval
-    )                                                        AS enter_lag_mean,
+    )                                                         AS enter_lag_mean,
     LAG(STDDEV_POP(enter_count)) OVER (
         PARTITION BY shopid, business_day ORDER BY start_time_interval
-    )                                                        AS enter_lag_std,
+    )                                                         AS enter_lag_std,
     LAG(VAR_POP(enter_count)) OVER (
         PARTITION BY shopid, business_day ORDER BY start_time_interval
-    )                                                        AS enter_lag_var
-FROM statistic.enter_step_1_anomaly_10_minutes
+    )                                                         AS enter_lag_var
+FROM natis.enter_step_1_anomaly_10_minutes
 GROUP BY shopid, shop_name, vendor_name,
          start_time_interval, end_time_interval, business_day,
          longitude, latitude
@@ -407,8 +407,8 @@ ORDER BY shopid, start_time_interval
 ;
 
 
-truncate table statistic.enter_step_2_anomaly_statistic_30_minutes;
-insert into statistic.enter_step_2_anomaly_statistic_30_minutes
+drop table if exists natis.enter_step_2_anomaly_statistic_30_minutes;
+create table natis.enter_step_2_anomaly_statistic_30_minutes as
 SELECT
     shopid, shop_name, vendor_name,
     start_time_interval,
@@ -417,28 +417,28 @@ SELECT
     '30M'             as selected_time_interval,
     'count_entrance'  as measure_name,
     longitude, latitude,
-    SUM(enter_count) / COUNT(*)::FLOAT                       AS enter_mean,
-    STDDEV_POP(enter_count)                                  AS enter_std,
-    VAR_POP(enter_count)                                     AS enter_var,
-    SUM(enter_count)                                         AS enter_sum,
-    MAX(enter_count)                                         AS enter_max,
-    MIN(enter_count)                                         AS enter_min,
+    SUM(enter_count) / COUNT(*)::FLOAT                        AS enter_mean,
+    STDDEV_POP(enter_count)                                   AS enter_std,
+    VAR_POP(enter_count)                                      AS enter_var,
+    SUM(enter_count)                                          AS enter_sum,
+    MAX(enter_count)                                          AS enter_max,
+    MIN(enter_count)                                          AS enter_min,
     PERCENTILE_CONT(0.5)  WITHIN GROUP (ORDER BY enter_count) AS enter_median,
     PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY enter_count) AS enter_p25,
     PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY enter_count) AS enter_p75,
-    SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END)        AS zero_interval,
-    COUNT(*)                                                  AS total_observation,
+    SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END)         AS zero_interval,
+    COUNT(*)                                                   AS total_observation,
     SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END) / COUNT(*)::FLOAT AS zero_prop,
     LAG(SUM(enter_count) / COUNT(*)::FLOAT) OVER (
         PARTITION BY shopid, business_day ORDER BY start_time_interval
-    )                                                        AS enter_lag_mean,
+    )                                                         AS enter_lag_mean,
     LAG(STDDEV_POP(enter_count)) OVER (
         PARTITION BY shopid, business_day ORDER BY start_time_interval
-    )                                                        AS enter_lag_std,
+    )                                                         AS enter_lag_std,
     LAG(VAR_POP(enter_count)) OVER (
         PARTITION BY shopid, business_day ORDER BY start_time_interval
-    )                                                        AS enter_lag_var
-FROM statistic.enter_step_1_anomaly_enter_30_minutes
+    )                                                         AS enter_lag_var
+FROM natis.enter_step_1_anomaly_enter_30_minutes
 GROUP BY shopid, shop_name, vendor_name,
          start_time_interval, end_time_interval, business_day,
          longitude, latitude
@@ -446,8 +446,8 @@ ORDER BY shopid, start_time_interval
 ;
 
 
-truncate table statistic.enter_step_2_anomaly_statistic_60_minutes;
-insert into statistic.enter_step_2_anomaly_statistic_60_minutes
+drop table if exists natis.enter_step_2_anomaly_statistic_60_minutes;
+create table natis.enter_step_2_anomaly_statistic_60_minutes as
 SELECT
     shopid, shop_name, vendor_name,
     start_time_interval,
@@ -456,28 +456,28 @@ SELECT
     '1H'              as selected_time_interval,
     'count_entrance'  as measure_name,
     longitude, latitude,
-    SUM(enter_count) / COUNT(*)::FLOAT                       AS enter_mean,
-    STDDEV_POP(enter_count)                                  AS enter_std,
-    VAR_POP(enter_count)                                     AS enter_var,
-    SUM(enter_count)                                         AS enter_sum,
-    MAX(enter_count)                                         AS enter_max,
-    MIN(enter_count)                                         AS enter_min,
+    SUM(enter_count) / COUNT(*)::FLOAT                        AS enter_mean,
+    STDDEV_POP(enter_count)                                   AS enter_std,
+    VAR_POP(enter_count)                                      AS enter_var,
+    SUM(enter_count)                                          AS enter_sum,
+    MAX(enter_count)                                          AS enter_max,
+    MIN(enter_count)                                          AS enter_min,
     PERCENTILE_CONT(0.5)  WITHIN GROUP (ORDER BY enter_count) AS enter_median,
     PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY enter_count) AS enter_p25,
     PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY enter_count) AS enter_p75,
-    SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END)        AS zero_interval,
-    COUNT(*)                                                  AS total_observation,
+    SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END)         AS zero_interval,
+    COUNT(*)                                                   AS total_observation,
     SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END) / COUNT(*)::FLOAT AS zero_prop,
     LAG(SUM(enter_count) / COUNT(*)::FLOAT) OVER (
         PARTITION BY shopid, business_day ORDER BY start_time_interval
-    )                                                        AS enter_lag_mean,
+    )                                                         AS enter_lag_mean,
     LAG(STDDEV_POP(enter_count)) OVER (
         PARTITION BY shopid, business_day ORDER BY start_time_interval
-    )                                                        AS enter_lag_std,
+    )                                                         AS enter_lag_std,
     LAG(VAR_POP(enter_count)) OVER (
         PARTITION BY shopid, business_day ORDER BY start_time_interval
-    )                                                        AS enter_lag_var
-FROM statistic.enter_step_1_anomaly_enter_60_minutes
+    )                                                         AS enter_lag_var
+FROM natis.enter_step_1_anomaly_enter_60_minutes
 GROUP BY shopid, shop_name, vendor_name,
          start_time_interval, end_time_interval, business_day,
          longitude, latitude
@@ -485,8 +485,8 @@ ORDER BY shopid, start_time_interval
 ;
 
 
-truncate table statistic.enter_step_2_anomaly_statistic_24_hours;
-insert into statistic.enter_step_2_anomaly_statistic_24_hours
+drop table if exists natis.enter_step_2_anomaly_statistic_24_hours;
+create table natis.enter_step_2_anomaly_statistic_24_hours as
 SELECT
     shopid, shop_name, vendor_name,
     start_time_interval,
@@ -495,22 +495,22 @@ SELECT
     '24H'             as selected_time_interval,
     'count_entrance'  as measure_name,
     longitude, latitude,
-    SUM(enter_count) / COUNT(*)::FLOAT                       AS enter_mean,
-    STDDEV_POP(enter_count)                                  AS enter_std,
-    VAR_POP(enter_count)                                     AS enter_var,
-    SUM(enter_count)                                         AS enter_sum,
-    MAX(enter_count)                                         AS enter_max,
-    MIN(enter_count)                                         AS enter_min,
+    SUM(enter_count) / COUNT(*)::FLOAT                        AS enter_mean,
+    STDDEV_POP(enter_count)                                   AS enter_std,
+    VAR_POP(enter_count)                                      AS enter_var,
+    SUM(enter_count)                                          AS enter_sum,
+    MAX(enter_count)                                          AS enter_max,
+    MIN(enter_count)                                          AS enter_min,
     PERCENTILE_CONT(0.5)  WITHIN GROUP (ORDER BY enter_count) AS enter_median,
     PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY enter_count) AS enter_p25,
     PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY enter_count) AS enter_p75,
-    SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END)        AS zero_interval,
-    COUNT(*)                                                  AS total_observation,
+    SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END)         AS zero_interval,
+    COUNT(*)                                                   AS total_observation,
     SUM(CASE WHEN enter_count = 0 THEN 1 ELSE 0 END) / COUNT(*)::FLOAT AS zero_prop,
     0.0  AS enter_lag_mean,
     0.0  AS enter_lag_std,
     0.0  AS enter_lag_var
-FROM statistic.enter_step_1_anomaly_enter_24_hours
+FROM natis.enter_step_1_anomaly_enter_24_hours
 GROUP BY shopid, shop_name, vendor_name,
          start_time_interval, end_time_interval, business_day,
          longitude, latitude
@@ -519,15 +519,15 @@ ORDER BY shopid, start_time_interval
 
 
 -----------------------------------------------------
-truncate table statistic.enter_union_statistic_enter_anomaly;
-insert into statistic.enter_union_statistic_enter_anomaly
-select * from statistic.enter_step_2_anomaly_statistic_10_minutes
+drop table if exists natis.enter_union_statistic_enter_anomaly;
+create table natis.enter_union_statistic_enter_anomaly as
+select * from natis.enter_step_2_anomaly_statistic_10_minutes
 union all
-select * from statistic.enter_step_2_anomaly_statistic_30_minutes
+select * from natis.enter_step_2_anomaly_statistic_30_minutes
 union all
-select * from statistic.enter_step_2_anomaly_statistic_60_minutes
+select * from natis.enter_step_2_anomaly_statistic_60_minutes
 union all
-select * from statistic.enter_step_2_anomaly_statistic_24_hours
+select * from natis.enter_step_2_anomaly_statistic_24_hours
 ;
 
 
@@ -571,8 +571,8 @@ select * from statistic.enter_step_2_anomaly_statistic_24_hours
 --   The decision interval H is typically calibrated to a desired ARL.
 --   All parameters needed (enter_mean, nb_r, nb_p) are stored here.
 ----------------------------------------------------------
-truncate table statistic.enter_final_output_statsitic_anomaly_enter;
-insert into statistic.enter_final_output_statsitic_anomaly_enter
+drop table if exists natis.enter_final_output_statsitic_anomaly_enter;
+create table natis.enter_final_output_statsitic_anomaly_enter as
 select
     shopid                           as shop_id,
     shop_name,
@@ -607,7 +607,7 @@ select
     enter_p75,
     (enter_p75 - enter_p25)                          AS enter_iqr,
 
-    -- coefficient of variation  (σ/μ) – used for CUSUM slack & model choice
+    -- coefficient of variation (σ/μ) – CUSUM slack & model selection
     CASE WHEN enter_mean > 0
          THEN enter_std / enter_mean
          ELSE NULL END                               AS enter_cv,
@@ -624,7 +624,7 @@ select
     -- ── Negative Binomial parameters ─────────────────────────────────────
     --   Valid when σ² > μ  (overdispersed count data).
     --   When σ² ≤ μ the distribution is equi- or under-dispersed;
-    --   use Poisson (nb_r, nb_p will be NULL).
+    --   use Poisson instead (nb_r, nb_p will be NULL).
     CASE WHEN enter_var > enter_mean AND enter_mean > 0
          THEN POWER(enter_mean, 2) / NULLIF(enter_var - enter_mean, 0)
          ELSE NULL END                               AS nb_r,   -- size / dispersion parameter
@@ -642,7 +642,7 @@ select
     latitude,
     total_observation
 
-from statistic.enter_union_statistic_enter_anomaly
+from natis.enter_union_statistic_enter_anomaly
 ;
 
 end;
